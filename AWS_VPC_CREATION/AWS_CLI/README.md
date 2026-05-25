@@ -297,5 +297,5 @@ Possible improvements include:
 
 # Author
 Parth-kale
-AWS Production Infrastructure Project
-DevOps and Cloud Networking Architecture
+ 
+ 
