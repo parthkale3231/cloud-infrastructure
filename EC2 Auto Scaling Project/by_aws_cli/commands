@@ -2,51 +2,51 @@
 
 ## Set Region
 
-```bash
+  
 aws configure set region us-east-1
-```
+  
 
----
+  
 
 # 1. Create Launch Template
 
 ## Get Latest Amazon Linux 2 AMI
 
-```bash
+  
 aws ssm get-parameters \
 --names /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
-```
+  
 
 Copy the `Value` (AMI ID).
 
----
+  
 
 ## Create Security Group
 
-```bash
+  
 aws ec2 create-security-group \
 --group-name free-asg-sg \
 --description "Free Tier ASG Security Group" \
 --vpc-id YOUR_VPC_ID
-```
+  
 
----
+  
 
 ## Allow HTTP
 
-```bash
+  
 aws ec2 authorize-security-group-ingress \
 --group-name free-asg-sg \
 --protocol tcp \
 --port 80 \
 --cidr 0.0.0.0/0
-```
+  
 
----
+  
 
 ## Create Launch Template
 
-```bash
+  
 aws ec2 create-launch-template \
 --launch-template-name free-tier-template \
 --version-description v1 \
@@ -56,13 +56,13 @@ aws ec2 create-launch-template \
   "SecurityGroupIds":["SG_ID"],
   "UserData":"IyEvYmluL2Jhc2gKeXVtIHVwZGF0ZSAteQp5dW0gaW5zdGFsbCAteSBodHRwZApzeXN0ZW1jdGwgc3RhcnQgaHR0cGQKc3lzdGVtY3RsIGVuYWJsZSBodHRwZAplY2hvICJIZWxsbyBmcm9tIEF1dG8gU2NhbGluZyIgPiAvdmFyL3d3dy9odG1sL2luZGV4Lmh0bWw="
 }'
-```
+  
 
----
+  
 
 # 2. Create Auto Scaling Group
 
-```bash
+  
 aws autoscaling create-auto-scaling-group \
 --auto-scaling-group-name free-tier-asg \
 --launch-template LaunchTemplateName=free-tier-template,Version=1 \
@@ -72,7 +72,7 @@ aws autoscaling create-auto-scaling-group \
 --vpc-zone-identifier "SUBNET_ID_1,SUBNET_ID_2" \
 --health-check-type EC2 \
 --health-check-grace-period 300
-```
+  
 
 > Free tier safe values:
 
@@ -80,35 +80,35 @@ aws autoscaling create-auto-scaling-group \
 * Desired = 1
 * Max = 2
 
----
+  
 
 # 3. Manual Scaling
 
 ## Scale Up
 
-```bash
+  
 aws autoscaling update-auto-scaling-group \
 --auto-scaling-group-name free-tier-asg \
 --desired-capacity 2
-```
+  
 
----
+  
 
 ## Scale Down
 
-```bash
+  
 aws autoscaling update-auto-scaling-group \
 --auto-scaling-group-name free-tier-asg \
 --desired-capacity 1
-```
+  
 
----
+  
 
 # 4. Scheduled Scaling
 
 ## Scale Up Morning
 
-```bash
+  
 aws autoscaling put-scheduled-update-group-action \
 --scheduled-action-name morning-scale-up \
 --auto-scaling-group-name free-tier-asg \
@@ -116,13 +116,13 @@ aws autoscaling put-scheduled-update-group-action \
 --min-size 1 \
 --max-size 2 \
 --desired-capacity 2
-```
+  
 
----
+  
 
 ## Scale Down Evening
 
-```bash
+  
 aws autoscaling put-scheduled-update-group-action \
 --scheduled-action-name evening-scale-down \
 --auto-scaling-group-name free-tier-asg \
@@ -130,15 +130,15 @@ aws autoscaling put-scheduled-update-group-action \
 --min-size 1 \
 --max-size 2 \
 --desired-capacity 1
-```
+  
 
----
+  
 
 # 5. Simple Scaling Policy
 
 ## Create CloudWatch Alarm
 
-```bash
+  
 aws cloudwatch put-metric-alarm \
 --alarm-name high-cpu-alarm \
 --metric-name CPUUtilization \
@@ -150,41 +150,41 @@ aws cloudwatch put-metric-alarm \
 --dimensions Name=AutoScalingGroupName,Value=free-tier-asg \
 --evaluation-periods 2 \
 --alarm-actions SCALE_POLICY_ARN
-```
+  
 
----
+  
 
 ## Create Simple Scaling Policy
 
-```bash
+  
 aws autoscaling put-scaling-policy \
 --auto-scaling-group-name free-tier-asg \
 --policy-name simple-scale-up \
 --scaling-adjustment 1 \
 --adjustment-type ChangeInCapacity \
 --cooldown 300
-```
+  
 
----
+  
 
 # 6. Step Scaling Policy
 
 ## Create Step Scaling Policy
 
-```bash
+  
 aws autoscaling put-scaling-policy \
 --auto-scaling-group-name free-tier-asg \
 --policy-name step-scale-policy \
 --policy-type StepScaling \
 --step-adjustments MetricIntervalLowerBound=0,ScalingAdjustment=1 \
 --adjustment-type ChangeInCapacity
-```
+  
 
----
+  
 
 # 7. Target Tracking Scaling
 
-```bash
+  
 aws autoscaling put-scaling-policy \
 --auto-scaling-group-name free-tier-asg \
 --policy-name target-tracking-policy \
@@ -195,15 +195,15 @@ aws autoscaling put-scaling-policy \
   },
   "TargetValue":50.0
 }'
-```
+  
 
----
+  
 
 # 8. Predictive Scaling (Optional)
 
 ⚠ Predictive scaling may create additional resources and can exceed free tier.
 
-```bash
+  
 aws autoscaling put-scaling-policy \
 --policy-name predictive-policy \
 --auto-scaling-group-name free-tier-asg \
@@ -219,31 +219,31 @@ aws autoscaling put-scaling-policy \
   ],
   "Mode":"ForecastOnly"
 }'
-```
+  
 
 Use:
 
 * `ForecastOnly` → safer for free tier
 * Avoid `ForecastAndScale`
 
----
+  
 
 # 9. Instance Refresh
 
 ## Create New Launch Template Version
 
-```bash
+  
 aws ec2 create-launch-template-version \
 --launch-template-name free-tier-template \
 --source-version 1 \
 --version-description v2
-```
+  
 
----
+  
 
 ## Start Instance Refresh
 
-```bash
+  
 aws autoscaling start-instance-refresh \
 --auto-scaling-group-name free-tier-asg \
 --strategy Rolling \
@@ -251,67 +251,67 @@ aws autoscaling start-instance-refresh \
   "MinHealthyPercentage":50,
   "InstanceWarmup":120
 }'
-```
+  
 
----
+  
 
 ## Check Refresh Status
 
-```bash
+  
 aws autoscaling describe-instance-refreshes \
 --auto-scaling-group-name free-tier-asg
-```
+  
 
----
+  
 
 # 10. Warm Pool (Optional)
 
 ⚠ Warm pools keep stopped instances and may incur EBS charges.
 
-```bash
+  
 aws autoscaling put-warm-pool \
 --auto-scaling-group-name free-tier-asg \
 --pool-state Stopped \
 --min-size 1 \
 --max-group-prepared-capacity 2
-```
+  
 
----
+  
 
 # 11. View Auto Scaling Group
 
-```bash
+  
 aws autoscaling describe-auto-scaling-groups \
 --auto-scaling-group-names free-tier-asg
-```
+  
 
----
+  
 
 # 12. Delete Resources (Avoid Charges)
 
 ## Delete ASG
 
-```bash
+  
 aws autoscaling delete-auto-scaling-group \
 --auto-scaling-group-name free-tier-asg \
 --force-delete
-```
+  
 
----
+  
 
 ## Delete Launch Template
 
-```bash
+  
 aws ec2 delete-launch-template \
 --launch-template-name free-tier-template
-```
+  
 
----
+  
 
 # Free Tier Recommendations
 
 | Resource           | Recommended  |
-| ------------------ | ------------ |
+|              |          |
 | Instance Type      | t2.micro     |
 | Desired Capacity   | 1            |
 | Max Capacity       | 2            |
@@ -319,16 +319,6 @@ aws ec2 delete-launch-template \
 | Warm Pool          | Optional     |
 | Region             | us-east-1    |
 
----
+  
 
-# Architecture Overview
-
-![Image](https://images.openai.com/static-rsc-4/QUOGGoDYvWUFtBEkBwhV303fBeynO0BJ8WlANPj58kUaPSPmrnc8_X3UO8fKYLw3pRFInr3exEDi89Ov5d2iM3UktXu-RW-FR3Xy3vq_cnsDhNxgVTXfK49r_lvT9hvuUFflABvsqbAQGF6InO2npRdJWxeSNcE6JFGqQbuiCm12odMI06p1WnqWA5QTituE?purpose=fullsize)
-
-![Image](https://images.openai.com/static-rsc-4/9Mm427pKkGMSHWe_jCEpDQc2KX_o4wsYeJDexS8qhTyb9CouusFwPZGyJmvvcYwuqVrLjmFLZBwivAgsoV11R7MUGmhipcMp2kLeWn5ZGDqdJgV3vpiuQGYBdkHyE32lT949reXWDMf5MQgmlf-LlnlhGUJguZRIEeRrPhrx9HAgfqyt2Ja6KoZJwhnwxZ0Z?purpose=fullsize)
-
-![Image](https://images.openai.com/static-rsc-4/1ctR2GURuHgT0Ngp4JbfEFxg882VqGxvpn_Ok49RtP8J0bG0XLkI7pU5G3-xP3wHfVGknF3HTpAQQo9MUsfRp9LfL4kKOW0MfCPfIsffCH-eqW9kk1j7ecuqHljThG94u75B2XCoN5s5q4EC9ja0kdOX9Ik9pKeHCOU8wws4nHWTOjJ54VhnsB0bq25uasfw?purpose=fullsize)
-
-![Image](https://images.openai.com/static-rsc-4/aQVK-IR2Icszcbk9D1nchxsDSrZ5-9JdbCZAQBMzqqgPNZfrihHSmBtnjxg9SpGGdP03nMVLy0AzWiz8bPD6RFjPbmpcnxmuBX59BWxuFXXaut3OETzHElImrIFZFTA43d4oWkKqRaD9Onrcy3YIprSbVIHJha8tzUzo3aUs30T3Xt9NSxxjbcPL4yFMCYBI?purpose=fullsize)
-
-![Image](https://images.openai.com/static-rsc-4/AsMKZPbeajZEVKDEXpttm33InZ6UTaBcfYZdaN23vzPRIzlgS-iYovBgqZabaupIEkxrU1Y2kpbeZVgOyjvwlwFvlzQJZPteVN9QiJ-_h2QGRzI7oMhHtGBDRiDXITaJZOJHokfEHeDFrK2qxDrtUcY40RXBan-xd-c2OckTCCQj2uxVNTaVzkXE9mi2eI6v?purpose=fullsize)
+ 
