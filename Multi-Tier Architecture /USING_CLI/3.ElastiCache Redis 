@@ -1,0 +1,22 @@
+# Create Redis Cache Subnet Group
+aws elasticache create-cache-subnet-group \
+  --cache-subnet-group-name prod-redis-subnet \
+  --cache-subnet-group-description "Prod Redis Subnet" \
+  --subnet-ids subnet-xxxxxxxx subnet-yyyyyyyy \
+  --region us-east-1
+
+
+# Create Redis Replication Group (Multi-AZ)
+aws elasticache create-replication-group \
+  --replication-group-id prod-redis \
+  --replication-group-description "Production Redis Cache" \
+  --cache-node-type cache.t3.medium \
+  --engine redis \
+  --engine-version 7.0 \
+  --num-cache-clusters 2 \
+  --automatic-failover-enabled \
+  --cache-subnet-group-name prod-redis-subnet \
+  --security-group-ids sg-xxxxxxxx \
+  --at-rest-encryption-enabled \
+  --transit-encryption-enabled \
+  --region us-east-1

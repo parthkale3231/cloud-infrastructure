@@ -1,0 +1,35 @@
+# Create DB Subnet Group
+aws rds create-db-subnet-group \
+  --db-subnet-group-name prod-db-subnet-group \
+  --db-subnet-group-description "Production DB Subnet Group" \
+  --subnet-ids subnet-xxxxxxxx subnet-yyyyyyyy \
+  --region us-east-1
+
+
+# Create RDS Parameter Group
+aws rds create-db-parameter-group \
+  --db-parameter-group-name prod-postgres-params \
+  --db-parameter-group-family postgres15 \
+  --description "Production PostgreSQL parameters" \
+  --region us-east-1
+
+
+# Launch Multi-AZ PostgreSQL RDS Instance
+aws rds create-db-instance \
+  --db-instance-identifier prod-postgres \
+  --db-instance-class db.t3.medium \
+  --engine postgres \
+  --engine-version 15.4 \
+  --master-username prodadmin \
+  --manage-master-user-password \
+  --db-subnet-group-name prod-db-subnet-group \
+  --vpc-security-group-ids sg-xxxxxxxx \
+  --multi-az \
+  --storage-type gp3 \
+  --allocated-storage 100 \
+  --storage-encrypted \
+  --backup-retention-period 7 \
+  --deletion-protection \
+  --no-publicly-accessible \
+  --db-parameter-group-name prod-postgres-params \
+  --region us-east-1
