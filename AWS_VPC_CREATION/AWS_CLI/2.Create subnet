@@ -1,0 +1,20 @@
+# Public Subnet AZ-a
+aws ec2 create-subnet \
+  --vpc-id vpc-XXXXXXXX \
+  --cidr-block 10.0.1.0/24 \
+  --availability-zone us-east-1a \
+  --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=prod-public1a},{Key=kubernetes.io/role/elb,Value=1}]'
+
+# Private App Subnet AZ-a
+aws ec2 create-subnet \
+  --vpc-id vpc-XXXXXXXX \
+  --cidr-block 10.0.10.0/24 \
+  --availability-zone us-east-1a \
+  --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=prod-private-app1a},{Key=kubernetes.io/role/internal-elb,Value=1}]'
+
+# DB Subnet AZ-a
+aws ec2 create-subnet \
+  --vpc-id vpc-XXXXXXXX \
+  --cidr-block 10.0.20.0/24 \
+  --availability-zone us-east-1a \
+  --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=prod-private-db1a}]'

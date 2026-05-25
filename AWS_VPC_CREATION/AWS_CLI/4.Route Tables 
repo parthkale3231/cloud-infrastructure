@@ -1,0 +1,61 @@
+# Create Public Route Table
+PUB_RT=$(aws ec2 create-route-table \
+  --vpc-id vpc-XXXXXXXX \
+  --tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=prod-publicrt}]' \
+  --query 'RouteTable.RouteTableId' \
+  --output text)
+
+echo $PUB_RT
+
+
+# Create Internet Route for Public Route Table
+aws ec2 create-route \
+  --route-table-id $PUB_RT \
+  --destination-cidr-block 0.0.0.0/0 \
+  --gateway-id $IGW_ID
+
+
+# Associate Public Subnet AZ-a
+aws ec2 associate-route-table \
+  --subnet-id subnet-PUBLIC-AZ-A \
+  --route-table-id $PUB_RT
+
+
+# Associate Public Subnet AZ-b
+aws ec2 associate-route-table \
+  --subnet-id subnet-PUBLIC-AZ-B \
+  --route-table-id $PUB_RT
+
+
+
+# Create Private Route Table
+PRIV_RT=$(aws ec2 create-route-table \
+  --vpc-id vpc-XXXXXXXX \
+  --tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=prodprivate-rt}]' \
+  --query 'RouteTable.RouteTableId' \
+  --output text)
+
+echo $PRIV_RT
+
+
+# Create Route to NAT Gateway
+aws ec2 create-route \
+  --route-table-id $PRIV_RT \
+  --destination-cidr-block 0.0.0.0/0 \
+  --nat-gateway-id $NGW_ID
+
+
+# Associate Private App Subnet AZ-a
+aws ec2 associate-route-table \
+  --subnet-id subnet-PRIVATE-APP-AZ-A \
+  --route-table-id $PRIV_RT
+
+
+# Associate Private App Subnet AZ-b
+aws ec2 associate-route-table \
+  --subnet-id subnet-PRIVATE-APP-AZ-B \
+  --route-table-id $PRIV_RT
+
+
+# DB subnets should NOT have internet route
+# Do not add 0.0.0.0/0 route for DB route table

@@ -1,0 +1,65 @@
+ # Create ALB Security Group
+ALB_SG=$(aws ec2 create-security-group \
+  --group-name prod-alb-sg \
+  --description "ALB - allows 80 and 443 from internet" \
+  --vpc-id vpc-XXXXXXXX \
+  --query 'GroupId' \
+  --output text)
+
+echo $ALB_SG
+
+
+# Allow HTTP
+aws ec2 authorize-security-group-ingress \
+  --group-id $ALB_SG \
+  --protocol tcp \
+  --port 80 \
+  --cidr 0.0.0.0/0
+
+
+# Allow HTTPS
+aws ec2 authorize-security-group-ingress \
+  --group-id $ALB_SG \
+  --protocol tcp \
+  --port 443 \
+  --cidr 0.0.0.0/0
+
+
+
+# Create App Security Group
+APP_SG=$(aws ec2 create-security-group \
+  --group-name prod-app-sg \
+  --description "App tier - allows traffic from ALB SG only" \
+  --vpc-id vpc-XXXXXXXX \
+  --query 'GroupId' \
+  --output text)
+
+echo $APP_SG
+
+
+# Allow traffic from ALB SG to App SG on port 8080
+aws ec2 authorize-security-group-ingress \
+  --group-id $APP_SG \
+  --protocol tcp \
+  --port 8080 \
+  --source-group $ALB_SG
+
+
+
+# Create DB Security Group
+DB_SG=$(aws ec2 create-security-group \
+  --group-name prod-db-sg \
+  --description "DB tier - allows PostgreSQL from App SG only" \
+  --vpc-id vpc-XXXXXXXX \
+  --query 'GroupId' \
+  --output text)
+
+echo $DB_SG
+
+
+# Allow PostgreSQL traffic from App SG
+aws ec2 authorize-security-group-ingress \
+  --group-id $DB_SG \
+  --protocol tcp \
+  --port 5432 \
+  --source-group $APP_SG

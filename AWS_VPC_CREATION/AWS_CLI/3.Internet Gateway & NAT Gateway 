@@ -1,0 +1,37 @@
+# Create Internet Gateway
+IGW_ID=$(aws ec2 create-internet-gateway \
+  --tag-specifications 'ResourceType=internet-gateway,Tags=[{Key=Name,Value=prodigw}]' \
+  --query 'InternetGateway.InternetGatewayId' \
+  --output text)
+
+echo $IGW_ID
+
+# Attach Internet Gateway to VPC
+aws ec2 attach-internet-gateway \
+  --vpc-id vpc-XXXXXXXX \
+  --internet-gateway-id $IGW_ID
+
+
+# Allocate Elastic IP for NAT Gateway
+EIP_ALLOC_ID=$(aws ec2 allocate-address \
+  --domain vpc \
+  --query 'AllocationId' \
+  --output text)
+
+echo $EIP_ALLOC_ID
+
+
+# Create NAT Gateway in Public Subnet
+NGW_ID=$(aws ec2 create-nat-gateway \
+  --subnet-id subnet-PUBLIC-AZ-A \
+  --allocation-id $EIP_ALLOC_ID \
+  --tag-specifications 'ResourceType=natgateway,Tags=[{Key=Name,Value=prod-ngw1a}]' \
+  --query 'NatGateway.NatGatewayId' \
+  --output text)
+
+echo $NGW_ID
+
+
+# Wait until NAT Gateway becomes available
+aws ec2 wait nat-gateway-available \
+  --nat-gateway-ids $NGW_ID

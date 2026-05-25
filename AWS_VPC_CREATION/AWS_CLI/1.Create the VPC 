@@ -1,0 +1,38 @@
+# Create VPC
+aws ec2 create-vpc \
+  --cidr-block 10.0.0.0/16 \
+  --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=prodvpc},{Key=Env,Value=production}]'
+
+# Enable DNS hostnames
+aws ec2 modify-vpc-attribute \
+  --vpc-id vpc-XXXXXXXX \
+  --enable-dns-hostnames '{"Value":true}'
+
+# Enable DNS support
+aws ec2 modify-vpc-attribute \
+  --vpc-id vpc-XXXXXXXX \
+  --enable-dns-support '{"Value":true}'
+
+
+imp:replace your vpc-id with vpc-XXXXXXXX
+
+
+Or
+
+#You can also create the VPC and directly extract the VPC ID:
+VPC_ID=$(aws ec2 create-vpc \
+  --cidr-block 10.0.0.0/16 \
+  --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=prodvpc},{Key=Env,Value=production}]' \
+  --query 'Vpc.VpcId' \
+  --output text)
+
+echo $VPC_ID
+#Then enable DNS:
+
+aws ec2 modify-vpc-attribute \
+  --vpc-id $VPC_ID \
+  --enable-dns-hostnames '{"Value":true}'
+
+aws ec2 modify-vpc-attribute \
+  --vpc-id $VPC_ID \
+  --enable-dns-support '{"Value":true}'
