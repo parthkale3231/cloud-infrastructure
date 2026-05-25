@@ -1,0 +1,75 @@
+
+# -----------------------------------------
+# Create Auto Scaling Group
+# Region: us-east-1
+# Free Tier Friendly
+# -----------------------------------------
+
+aws autoscaling create-auto-scaling-group \
+  --region us-east-1 \
+  --auto-scaling-group-name prod-app-asg \
+  --launch-template "LaunchTemplateName=prod-app-lt,Version=\$Latest" \
+  --min-size 1 \
+  --max-size 2 \
+  --desired-capacity 1 \
+  --vpc-zone-identifier "subnet-xxxxxxxx subnet-yyyyyyyy" \
+  --target-group-arns "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/prod-app-tg/xxxxxxxxxxxxxxxx" \
+  --health-check-type ELB \
+  --health-check-grace-period 300 \
+  --termination-policies "OldestLaunchTemplate" "OldestInstance"
+
+# -----------------------------------------
+# Step Scaling Policy
+# Scale Out when CPU increases
+# -----------------------------------------
+
+aws autoscaling put-scaling-policy \
+  --region us-east-1 \
+  --policy-name prod-scale-out \
+  --auto-scaling-group-name prod-app-asg \
+  --policy-type StepScaling \
+  --adjustment-type ChangeInCapacity \
+  --step-adjustments '[
+    {
+      "MetricIntervalLowerBound": 0,
+      "MetricIntervalUpperBound": 10,
+      "ScalingAdjustment": 1
+    },
+    {
+      "MetricIntervalLowerBound": 10,
+      "ScalingAdjustment": 2
+    }
+  ]'
+  
+
+# -----------------------------------------
+# Target Tracking Scaling Policy
+# Maintain Average CPU at 60%
+# -----------------------------------------
+
+aws autoscaling put-scaling-policy \
+  --region us-east-1 \
+  --policy-name prod-cpu-target \
+  --auto-scaling-group-name prod-app-asg \
+  --policy-type TargetTrackingScaling \
+  --target-tracking-configuration '{
+    "TargetValue": 60.0,
+    "PredefinedMetricSpecification": {
+      "PredefinedMetricType": "ASGAverageCPUUtilization"
+    }
+  }'
+ 
+
+### Replace Before Running
+
+* `subnet-xxxxxxxx`
+* `subnet-yyyyyyyy`
+* `arn:aws:elasticloadbalancing:...`
+
+### Notes
+
+* `min-size=1` and `desired-capacity=1` help stay within Free Tier.
+* Use private subnets connected to a NAT Gateway if instances need internet access.
+* Ensure your ALB Target Group already exists before creating the ASG.
+* Launch template `prod-app-lt` must already be created successfully.
+ 

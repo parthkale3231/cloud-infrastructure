@@ -1,0 +1,79 @@
+# -------------------------------
+# Create User Data Script
+# -------------------------------
+cat > user-data.sh << 'EOF'
+#!/bin/bash
+
+# Update packages
+yum update -y
+
+# Install Node.js and AWS CLI
+yum install -y nodejs aws-cli
+
+# Create application directory
+mkdir -p /opt/app
+
+# Download application artifact from S3
+aws s3 cp s3://prod-artifacts/app/latest.tar.gz /opt/app/
+
+# Extract application
+cd /opt/app
+tar -xzf latest.tar.gz
+
+# Install dependencies
+npm install --production
+
+# Fetch DB host from SSM Parameter Store
+DB_HOST=$(aws ssm get-parameter \
+  --region us-east-1 \
+  --name "/prod/db/host" \
+  --with-decryption \
+  --query "Parameter.Value" \
+  --output text)
+
+# Export environment variable
+export DB_HOST=$DB_HOST
+
+# Start Node.js application
+nohup node server.js > /var/log/app.log 2>&1 &
+EOF
+
+
+
+
+# Encode User Data
+USER_DATA=$(base64 -w 0 user-data.sh)
+
+
+
+
+# -------------------------------
+# Create Launch Template
+# Free Tier Compatible (t3.micro)
+# Region: us-east-1
+# -------------------------------
+aws ec2 create-launch-template \
+  --region us-east-1 \
+  --launch-template-name prod-app-lt \
+  --version-description "v1" \
+  --launch-template-data "{
+    \"ImageId\":\"ami-0c02fb55956c7d316\",
+    \"InstanceType\":\"t3.micro\",
+    \"SecurityGroupIds\":[\"sg-xxxxxxxxxxxxxxxxx\"],
+    \"IamInstanceProfile\":{
+      \"Name\":\"prod-app-instance-profile\"
+    },
+    \"UserData\":\"$USER_DATA\"
+  }"
+
+
+#Replace Before Running
+#sg-xxxxxxxxxxxxxxxxx → Your Security Group ID
+#s3://prod-artifacts/app/latest.tar.gz → Your actual S3 path
+#Notes
+#ami-0c02fb55956c7d316 is Amazon Linux 2 AMI for us-east-1
+#t2.micro is AWS Free Tier eligible
+#Ensure EC2 IAM role has:
+#S3 Read Access
+#SSM Parameter Store Read Access
+

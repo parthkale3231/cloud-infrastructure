@@ -1,0 +1,61 @@
+# ---------------------------------------------------
+# CloudWatch Alarm
+# ALB 5XX Errors Greater Than 10 in 5 Minutes
+# Region: us-east-1
+# ---------------------------------------------------
+
+aws cloudwatch put-metric-alarm \
+  --region us-east-1 \
+  --alarm-name prod-alb-5xx-high \
+  --metric-name HTTPCode_Target_5XX_Count \
+  --namespace AWS/ApplicationELB \
+  --dimensions Name=LoadBalancer,Value=app/prod-alb/xxxxxxxxxxxxxxxx \
+  --statistic Sum \
+  --period 300 \
+  --evaluation-periods 1 \
+  --threshold 10 \
+  --comparison-operator GreaterThanThreshold \
+  --treat-missing-data notBreaching \
+  --alarm-actions arn:aws:sns:us-east-1:123456789012:prod-alerts
+
+
+# ---------------------------------------------------
+# CloudWatch Alarm
+# Alert if Healthy ASG Instances Drop Below 2
+# Region: us-east-1
+# ---------------------------------------------------
+
+aws cloudwatch put-metric-alarm \
+  --region us-east-1 \
+  --alarm-name prod-asg-unhealthy \
+  --metric-name GroupInServiceInstances \
+  --namespace AWS/AutoScaling \
+  --dimensions Name=AutoScalingGroupName,Value=prod-app-asg \
+  --statistic Minimum \
+  --period 60 \
+  --evaluation-periods 2 \
+  --threshold 2 \
+  --comparison-operator LessThanThreshold \
+  --treat-missing-data breaching \
+  --alarm-actions arn:aws:sns:us-east-1:123456789012:prod-alerts
+
+
+### Replace Before Running
+
+* `app/prod-alb/xxxxxxxxxxxxxxxx` → Your ALB ARN suffix
+* `123456789012` → Your AWS Account ID
+* `prod-alerts` → Your SNS Topic Name
+
+### Useful Command to Get ALB ARN Suffix
+
+aws elbv2 describe-load-balancers \
+  --region us-east-1 \
+  --query "LoadBalancers[*].[LoadBalancerName,LoadBalancerArn]" \
+  --output table
+  
+
+### Notes
+
+* SNS topic must already exist.
+* Ensure email/SMS subscription is confirmed for alerts.
+* `treat-missing-data` helps avoid false alarms during startup/shutdown periods.
