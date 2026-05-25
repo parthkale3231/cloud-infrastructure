@@ -1,0 +1,479 @@
+# PROJECT 05 — Bastion Host Architecture (Free Tier Friendly | us-east-1)
+
+## 1. Configure AWS CLI for us-east-1
+
+  
+aws configure
+ 
+
+Region:
+
+  
+us-east-1
+ 
+
+ 
+
+# OPTION 1 — SSM Session Manager (Recommended)
+
+## Why This Is Best
+
+* No public SSH access
+* No open port 22
+* No SSH keys required
+* Fully Free Tier compatible
+* Session logs supported
+* Production-grade AWS recommendation
+
+ 
+
+# Step 1 — Create IAM Trust Policy
+
+  
+cat > ssm-trust.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+ 
+
+ 
+
+# Step 2 — Create IAM Role
+
+  
+aws iam create-role \
+  --role-name SSMInstanceRole \
+  --assume-role-policy-document file://ssm-trust.json
+ 
+
+ 
+
+# Step 3 — Attach SSM Policy
+
+  
+aws iam attach-role-policy \
+  --role-name SSMInstanceRole \
+  --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+ 
+
+ 
+
+# Step 4 — Create Instance Profile
+
+  
+aws iam create-instance-profile \
+  --instance-profile-name SSMInstanceProfile
+ 
+
+ 
+
+# Step 5 — Add Role to Instance Profile
+
+  
+aws iam add-role-to-instance-profile \
+  --instance-profile-name SSMInstanceProfile \
+  --role-name SSMInstanceRole
+ 
+
+ 
+
+# Step 6 — Create VPC
+
+  
+aws ec2 create-vpc \
+  --cidr-block 10.0.0.0/16 \
+  --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=prod-vpc}]'
+ 
+
+ 
+
+# Step 7 — Enable DNS Support
+
+  
+aws ec2 modify-vpc-attribute \
+  --vpc-id vpc-XXXXXXXX \
+  --enable-dns-support
+ 
+
+  
+aws ec2 modify-vpc-attribute \
+  --vpc-id vpc-XXXXXXXX \
+  --enable-dns-hostnames
+ 
+
+ 
+
+# Step 8 — Create Private Subnet
+
+  
+aws ec2 create-subnet \
+  --vpc-id vpc-XXXXXXXX \
+  --cidr-block 10.0.1.0/24 \
+  --availability-zone us-east-1a \
+  --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=private-subnet}]'
+ 
+
+ 
+
+# Step 9 — Create Security Group
+
+  
+aws ec2 create-security-group \
+  --group-name private-ec2-sg \
+  --description "Private EC2 Security Group" \
+  --vpc-id vpc-XXXXXXXX
+ 
+
+ 
+
+# Step 10 — Allow Internal Traffic
+
+  
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-XXXXXXXX \
+  --protocol tcp \
+  --port 22 \
+  --cidr 10.0.0.0/16
+ 
+
+ 
+
+# Step 11 — Launch Private EC2 Instance
+
+## Amazon Linux 2023 AMI (Free Tier)
+
+  
+aws ec2 run-instances \
+  --image-id ami-0c02fb55956c7d316 \
+  --instance-type t2.micro \
+  --subnet-id subnet-XXXXXXXX \
+  --security-group-ids sg-XXXXXXXX \
+  --iam-instance-profile Name=SSMInstanceProfile \
+  --count 1 \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=private-ssm-server}]'
+ 
+
+ 
+
+# Step 12 — Start SSM Session
+
+  
+aws ssm start-session \
+  --target i-XXXXXXXX
+ 
+
+ 
+
+# Step 13 — Port Forwarding to Private Server
+
+  
+aws ssm start-session \
+  --target i-XXXXXXXX \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["22"],"localPortNumber":["2222"]}'
+ 
+
+ 
+
+# OPTION 2 — Classic Bastion Host (SSH)
+
+ 
+
+# Step 1 — Create Internet Gateway
+
+  
+aws ec2 create-internet-gateway
+ 
+
+ 
+
+# Step 2 — Attach IGW to VPC
+
+  
+aws ec2 attach-internet-gateway \
+  --vpc-id vpc-XXXXXXXX \
+  --internet-gateway-id igw-XXXXXXXX
+ 
+
+ 
+
+# Step 3 — Create Public Subnet
+
+  
+aws ec2 create-subnet \
+  --vpc-id vpc-XXXXXXXX \
+  --cidr-block 10.0.2.0/24 \
+  --availability-zone us-east-1a \
+  --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=public-subnet}]'
+ 
+
+ 
+
+# Step 4 — Enable Auto Public IP
+
+  
+aws ec2 modify-subnet-attribute \
+  --subnet-id subnet-XXXXXXXX \
+  --map-public-ip-on-launch
+ 
+
+ 
+
+# Step 5 — Create Route Table
+
+  
+aws ec2 create-route-table \
+  --vpc-id vpc-XXXXXXXX
+ 
+
+ 
+
+# Step 6 — Create Internet Route
+
+  
+aws ec2 create-route \
+  --route-table-id rtb-XXXXXXXX \
+  --destination-cidr-block 0.0.0.0/0 \
+  --gateway-id igw-XXXXXXXX
+ 
+
+ 
+
+# Step 7 — Associate Route Table
+
+  
+aws ec2 associate-route-table \
+  --subnet-id subnet-XXXXXXXX \
+  --route-table-id rtb-XXXXXXXX
+ 
+
+ 
+
+# Step 8 — Create Bastion Security Group
+
+  
+aws ec2 create-security-group \
+  --group-name prod-bastion-sg \
+  --description "Bastion Host Security Group" \
+  --vpc-id vpc-XXXXXXXX
+ 
+
+ 
+
+# Step 9 — Allow SSH From Your Public IP
+
+## Check your IP
+
+  
+curl ifconfig.me
+ 
+
+## Add ingress rule
+
+  
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-XXXXXXXX \
+  --protocol tcp \
+  --port 22 \
+  --cidr YOUR-IP/32
+ 
+
+ 
+
+# Step 10 — Create Key Pair
+
+  
+aws ec2 create-key-pair \
+  --key-name bastion-key \
+  --query 'KeyMaterial' \
+  --output text > bastion-key.pem
+ 
+
+ 
+
+# Step 11 — Secure PEM File
+
+  
+chmod 400 bastion-key.pem
+ 
+
+ 
+
+# Step 12 — Launch Bastion Host
+
+  
+aws ec2 run-instances \
+  --image-id ami-0c02fb55956c7d316 \
+  --instance-type t2.micro \
+  --subnet-id subnet-XXXXXXXX \
+  --security-group-ids sg-XXXXXXXX \
+  --key-name bastion-key \
+  --associate-public-ip-address \
+  --count 1 \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=prod-bastion}]'
+ 
+
+ 
+
+# Step 13 — Connect to Bastion
+
+  
+ssh -i bastion-key.pem ec2-user@PUBLIC-IP
+ 
+
+ 
+
+# Step 14 — Harden Bastion Host
+
+## Disable Password Authentication
+
+  
+sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+ 
+
+ 
+
+## Disable Root Login
+
+  
+sudo sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
+ 
+
+ 
+
+## Allow Specific Users Only
+
+  
+echo 'AllowUsers ec2-user devopsadmin' | sudo tee -a /etc/ssh/sshd_config
+ 
+
+ 
+
+## Restart SSH
+
+  
+sudo systemctl restart sshd
+ 
+
+ 
+
+## Install fail2ban
+
+  
+sudo yum install -y fail2ban
+ 
+
+  
+sudo systemctl enable fail2ban
+ 
+
+  
+sudo systemctl start fail2ban
+ 
+
+ 
+
+# OPTIONAL — Create Network ACL
+
+## Create NACL
+
+  
+aws ec2 create-network-acl \
+  --vpc-id vpc-XXXXXXXX
+ 
+
+ 
+
+## Allow SSH
+
+  
+aws ec2 create-network-acl-entry \
+  --network-acl-id acl-XXXXXXXX \
+  --ingress \
+  --rule-number 100 \
+  --protocol tcp \
+  --port-range From=22,To=22 \
+  --rule-action allow \
+  --cidr-block YOUR-IP/32
+ 
+
+ 
+
+# OPTIONAL — Bastion Auto Scaling (Free Tier Safe)
+
+## Create Launch Template
+
+  
+aws ec2 create-launch-template \
+  --launch-template-name prod-bastion-lt \
+  --launch-template-data '{
+    "ImageId":"ami-0c02fb55956c7d316",
+    "InstanceType":"t2.micro",
+    "KeyName":"bastion-key",
+    "SecurityGroupIds":["sg-XXXXXXXX"]
+  }'
+ 
+
+ 
+
+## Create Auto Scaling Group
+
+  
+aws autoscaling create-auto-scaling-group \
+  --auto-scaling-group-name prod-bastion-asg \
+  --launch-template LaunchTemplateName=prod-bastion-lt,Version='$Latest' \
+  --min-size 1 \
+  --max-size 1 \
+  --desired-capacity 1 \
+  --vpc-zone-identifier subnet-XXXXXXXX
+ 
+
+ 
+
+# Verify Architecture
+
+## Check EC2 Instances
+
+  
+aws ec2 describe-instances
+ 
+
+ 
+
+## Check SSM Managed Instances
+
+  
+aws ssm describe-instance-information
+ 
+
+ 
+
+## Check Security Groups
+
+  
+aws ec2 describe-security-groups
+ 
+
+ 
+
+# Recommended Production Setup
+
+| Component            | Recommendation          |
+|       -- |        -- |
+| Access Method        | SSM Session Manager     |
+| Public SSH           | Disabled                |
+| Bastion Host         | Optional                |
+| Logging              | CloudTrail + CloudWatch |
+| Instance Type        | t2.micro                |
+| Security             | Least Privilege IAM     |
+| Free Tier Compatible | Yes                     |
