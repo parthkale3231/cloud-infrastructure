@@ -1,4 +1,4 @@
-# 🚀 50 AWS Projects – Ultra Deep Guide
+
 
 <div align="center">
 
