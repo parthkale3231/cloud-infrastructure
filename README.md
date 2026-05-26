@@ -300,11 +300,6 @@ If you found this repository useful:
 📢 Share with others
 
  
-
-# 📄 License
-
-This project is licensed under the MIT License.
-
  
 
 # 👨‍💻 Author
